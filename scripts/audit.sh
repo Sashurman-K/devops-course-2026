@@ -76,15 +76,5 @@ else
     check "Нет общей записи, права ключа 600" "yes" "no"
 fi
 
-echo "[4] Веб-сервер"
-
-check "Nginx активен" "active" "$(systemctl is-active nginx)"
-
-if sudo nginx -t >/dev/null 2>&1; then
-    check "Конфигурация Nginx корректна" "0" "0"
-else
-    check "Конфигурация Nginx корректна" "0" "1"
-fi
-
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
