@@ -48,6 +48,33 @@ check "Входящая политика — deny" "deny" \
 
 echo "[3] Учётные записи"
 awk -F: '$3>=1000 && $3<65534 {printf "    %s (uid=%s)\n",$1,$3}' /etc/passwd
+echo "[4] Веб-сервер"
+
+check "Nginx активен" "active" "$(systemctl is-active nginx)"
+
+if sudo nginx -t >/dev/null 2>&1; then
+    check "Конфигурация Nginx корректна" "0" "0"
+else
+    check "Конфигурация Nginx корректна" "0" "1"
+fi
+
+# По умолчанию проверяем, что сертификат действует ещё 30 дней.
+CERT_MIN_SECONDS="${AUDIT_CERT_MIN_SECONDS:-2592000}"
+
+if openssl x509 -in /etc/ssl/certs/devops.crt \
+    -checkend "$CERT_MIN_SECONDS" -noout >/dev/null 2>&1; then
+    check "Срок действия сертификата достаточен" "yes" "yes"
+else
+    check "Срок действия сертификата достаточен" "yes" "no"
+fi
+
+if WRITABLE="$(find /var/www/devops-site -perm -o+w)" &&
+    [[ -z "$WRITABLE" ]] &&
+    [[ "$(sudo stat -c '%a' /etc/ssl/private/devops.key)" == "600" ]]; then
+    check "Нет общей записи, права ключа 600" "yes" "yes"
+else
+    check "Нет общей записи, права ключа 600" "yes" "no"
+fi
 
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
