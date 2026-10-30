@@ -63,7 +63,6 @@
 - Правила настроены для IPv4 и IPv6.
 - Журналирование включено, уровень medium.
 
-## 7. Снимки состояния
 
 ## 7. Снимки состояния
 
@@ -73,3 +72,59 @@
   Состояние после настройки SSH-ключей.
 - 03-ssh-hardened — 30.10.2026, 16:16.
   Состояние после усиления защиты SSH.
+## 8. Веб-сервер
+
+### Установка и конфигурация
+
+- Пакет: nginx.
+- Конфигурация сайта: /etc/nginx/sites-available/devops-site.
+- Активирующая ссылка: /etc/nginx/sites-enabled/devops-site.
+- Стандартный сайт отключён: ссылка sites-enabled/default удалена.
+- HTTP, порт 80: перенаправление 301 на HTTPS.
+- HTTPS, порт 443: публикация сайта devops.local.
+- Разрешённые версии TLS: TLSv1.2 и TLSv1.3.
+
+Установка:
+sudo apt update && sudo apt install -y nginx
+
+Применение конфигурации:
+sudo nginx -t && sudo systemctl reload nginx
+
+### Файлы сайта
+
+- Каталог: /var/www/devops-site.
+- Владелец и группа: devops:devops.
+- Права каталогов: 755.
+- Права файлов: 644.
+- Главная страница: index.html.
+- Страница ошибки: 404.html.
+- www-data может читать файлы, но не изменять их.
+
+### Сертификат и ключ
+
+- Сертификат: /etc/ssl/certs/devops.crt.
+- Владелец сертификата: root, права 644.
+- Закрытый ключ: /etc/ssl/private/devops.key.
+- Владелец ключа: root, права 600.
+- Сертификат самоподписанный, срок действия — 365 дней.
+- SAN: DNS:devops.local.
+
+Команда формирования:
+
+```bash
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/ssl/private/devops.key \
+  -out /etc/ssl/certs/devops.crt \
+  -subj "/CN=devops.local" \
+  -addext "subjectAltName=DNS:devops.local"
+```
+
+### Журналы и доставка
+
+- Запросы HTTPS: /var/log/nginx/devops-site.access.log.
+- Ошибки сайта: /var/log/nginx/devops-site.error.log.
+- Сценарий доставки: scripts/deploy.sh, запускается из WSL.
+- Источник: каталог site/ в репозитории.
+- Доставка: rsync через SSH, с --delete и --chmod=D755,F644.
+- После доставки проверяется HTTPS с сертификатом ~/devops.crt.
+- Снимок состояния после настройки HTTPS: 04-nginx-https.
