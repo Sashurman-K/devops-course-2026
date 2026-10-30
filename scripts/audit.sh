@@ -76,5 +76,25 @@ else
     check "Нет общей записи, права ключа 600" "yes" "no"
 fi
 
+echo "[5] Контейнеризация"
+
+check "Docker активен" "active" \
+    "$(systemctl is-active docker)"
+
+check "PostgreSQL healthy" "healthy" \
+    "$(docker inspect -f '{{.State.Health.Status}}' app-db-1)"
+
+if ss -H -ltn | awk '
+    $4 ~ /:(5000|5432)$/ && $4 !~ /^127\.0\.0\.1:/ {bad=1}
+    END {exit bad}
+'; then
+    check "Порты 5000 и 5432 не доступны извне" "yes" "yes"
+else
+    check "Порты 5000 и 5432 не доступны извне" "yes" "no"
+fi
+
+check "Права файла .env равны 600" "600" \
+    "$(stat -c '%a' "$HOME/app/.env")"
+
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1

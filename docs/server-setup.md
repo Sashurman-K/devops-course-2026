@@ -128,3 +128,75 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 - Доставка: rsync через SSH, с --delete и --chmod=D755,F644.
 - После доставки проверяется HTTPS с сертификатом ~/devops.crt.
 - Снимок состояния после настройки HTTPS: 04-nginx-https.
+
+## 9. Контейнеризация
+
+### Установка Docker
+
+Docker Engine установлен из официального APT-репозитория:
+https://download.docker.com/linux/ubuntu
+
+Пакеты:
+docker-ce, docker-ce-cli, containerd.io,
+docker-buildx-plugin, docker-compose-plugin.
+
+Версия Docker Engine: 29.9.2.
+Версия Docker Compose: 5.6.1.
+
+Пользователь devops добавлен в группу docker:
+sudo usermod -aG docker devops
+
+После добавления выполнен повторный вход по SSH.
+Членство в группе docker фактически предоставляет права root.
+
+### Проект и секреты
+
+Проект на сервере: /home/devops/app.
+Конфигурация: /home/devops/app/docker-compose.yml.
+Секреты: /home/devops/app/.env, владелец devops, права 600.
+Файл .env исключён из Git и контекста сборки.
+В репозитории хранится только шаблон .env.example.
+
+Доставка из WSL:
+rsync -avz --delete --exclude=.env app/ devops:app/
+
+Сборка и запуск на сервере:
+cd ~/app
+docker compose up -d --build --wait
+
+### Сервисы, сеть и данные
+
+- app: образ devops-app:1.0, процесс от пользователя app.
+- db: образ postgres:16-alpine.
+- Приложение подключается к БД по имени db.
+- Сеть проекта: app_backend, тип bridge.
+- Порт приложения: только 127.0.0.1:5000.
+- Порт PostgreSQL 5432 наружу не опубликован.
+- Именованный том: app_db_data.
+- docker compose down сохраняет данные.
+- docker compose down -v удаляет том и данные.
+- Запуск приложения ожидает состояния healthy у БД.
+
+### Обратный прокси
+
+Конфигурация: /etc/nginx/sites-available/devops-site.
+В HTTPS-блок добавлено:
+
+```nginx
+location /app/ {
+    proxy_pass http://127.0.0.1:5000/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Статический сайт по адресу / сохранён.
+Приложение доступно по https://devops.local/app/.
+Проверка здоровья: https://devops.local/app/health.
+
+Применение конфигурации:
+sudo nginx -t && sudo systemctl reload nginx
+
+Снимок состояния: 05-docker-compose.
