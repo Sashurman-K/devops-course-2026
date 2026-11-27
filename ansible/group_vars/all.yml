@@ -1,0 +1,6 @@
+---
+app_image: "ghcr.io/sashurman-k/devops-ci-app"
+app_tag: "6a6a11a5a67b3e3aa03cfcea4921896ffad91b4b"
+app_container_name: "devops-ci-app"
+app_host_port: 5000
+app_internal_port: 5000
